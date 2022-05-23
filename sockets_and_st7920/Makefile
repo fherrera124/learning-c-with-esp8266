@@ -3,9 +3,9 @@
 # project subdirectory.
 #
 
-PROJECT_NAME := display-socket
+PROJECT_NAME := sockets_and_st7920
 
 # Getting the components folder located in the parent directory of the current example
-EXTRA_COMPONENT_DIRS = ../$(PARENT_DIR)/components
+EXTRA_COMPONENT_DIRS = ../components
 
 include $(IDF_PATH)/make/project.mk
