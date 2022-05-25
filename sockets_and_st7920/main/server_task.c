@@ -22,138 +22,138 @@
 
 static const char *TAG = "server_task";
 
+static void do_retransmit(const int sock)
+{
+    int len;
+    char rx_buffer[128];
+
+    do
+    {
+        len = recv(sock, rx_buffer, sizeof(rx_buffer) - 1, 0);
+        if (len < 0)
+        {
+            ESP_LOGE(TAG, "Error occurred during receiving: errno %d", errno);
+        }
+        else if (len == 0)
+        {
+            ESP_LOGW(TAG, "Connection closed");
+        }
+        else
+        {
+            rx_buffer[len] = 0; // Null-terminate whatever is received and treat it like a string
+            ESP_LOGI(TAG, "Received %d bytes: %s", len, rx_buffer);
+            snprintf(buf, sizeof(buf), "%s", rx_buffer);
+
+            // send() can return less bytes than supplied length.
+            // Walk-around for robust implementation.
+            int to_write = len;
+            while (to_write > 0)
+            {
+                int written = send(sock, rx_buffer + (len - to_write), to_write, 0);
+                if (written < 0)
+                {
+                    ESP_LOGE(TAG, "Error occurred during sending: errno %d", errno);
+                }
+                to_write -= written;
+            }
+        }
+    } while (len > 0);
+}
+
 static void tcp_server_task(void *pvParameters)
 {
-    char rx_buffer[128];
     char addr_str[128];
-    int addr_family;
+    int addr_family = (int)pvParameters;
     int ip_protocol;
+    struct sockaddr_storage dest_addr;
+
+    if (addr_family == AF_INET)
+    {
+        struct sockaddr_in *dest_addr_ip4 = (struct sockaddr_in *)&dest_addr;
+        dest_addr_ip4->sin_addr.s_addr = htonl(INADDR_ANY);
+        dest_addr_ip4->sin_family = AF_INET;
+        dest_addr_ip4->sin_port = htons(PORT);
+        ip_protocol = IPPROTO_IP;
+    }
+#ifdef CONFIG_EXAMPLE_IPV6
+    else if (addr_family == AF_INET6)
+    {
+        struct sockaddr_in6 *dest_addr_ip6 = (struct sockaddr_in6 *)&dest_addr;
+        bzero(&dest_addr_ip6->sin6_addr.un, sizeof(dest_addr_ip6->sin6_addr.un));
+        dest_addr_ip6->sin6_family = AF_INET6;
+        dest_addr_ip6->sin6_port = htons(PORT);
+        ip_protocol = IPPROTO_IPV6;
+    }
+#endif
+
+    int listen_sock = socket(addr_family, SOCK_STREAM, ip_protocol);
+    if (listen_sock < 0)
+    {
+        ESP_LOGE(TAG, "Unable to create socket: errno %d", errno);
+        vTaskDelete(NULL);
+        return;
+    }
+    ESP_LOGI(TAG, "Socket created");
+
+    int err = bind(listen_sock, (struct sockaddr *)&dest_addr, sizeof(dest_addr));
+    if (err != 0)
+    {
+        ESP_LOGE(TAG, "Socket unable to bind: errno %d", errno);
+        goto CLEAN_UP;
+    }
+    ESP_LOGI(TAG, "Socket bound, port %d", PORT);
+
+    err = listen(listen_sock, 1);
+    if (err != 0)
+    {
+        ESP_LOGE(TAG, "Error occured during listen: errno %d", errno);
+        goto CLEAN_UP;
+    }
 
     while (1)
     {
 
-#ifdef CONFIG_EXAMPLE_IPV4
-        struct sockaddr_in destAddr;
-        destAddr.sin_addr.s_addr = htonl(INADDR_ANY);
-        destAddr.sin_family = AF_INET;
-        destAddr.sin_port = htons(PORT);
-        addr_family = AF_INET;
-        ip_protocol = IPPROTO_IP;
-        inet_ntoa_r(destAddr.sin_addr, addr_str, sizeof(addr_str) - 1);
-#else // IPV6
-        struct sockaddr_in6 destAddr;
-        bzero(&destAddr.sin6_addr.un, sizeof(destAddr.sin6_addr.un));
-        destAddr.sin6_family = AF_INET6;
-        destAddr.sin6_port = htons(PORT);
-        addr_family = AF_INET6;
-        ip_protocol = IPPROTO_IPV6;
-        inet6_ntoa_r(destAddr.sin6_addr, addr_str, sizeof(addr_str) - 1);
-#endif
-
-        int listen_sock = socket(addr_family, SOCK_STREAM, ip_protocol);
-        if (listen_sock < 0)
-        {
-            ESP_LOGE(TAG, "Unable to create socket: errno %d", errno);
-            break;
-        }
-        ESP_LOGI(TAG, "Socket created");
-        strcpy(buf, "Socket created");
-
-        int err = bind(listen_sock, (struct sockaddr *)&destAddr, sizeof(destAddr));
-        if (err != 0)
-        {
-            ESP_LOGE(TAG, "Socket unable to bind: errno %d", errno);
-            break;
-        }
-        ESP_LOGI(TAG, "Socket binded");
-        strcpy(buf, "Socket binded");
-
-        err = listen(listen_sock, 1);
-        if (err != 0)
-        {
-            ESP_LOGE(TAG, "Error occured during listen: errno %d", errno);
-            break;
-        }
         ESP_LOGI(TAG, "Socket listening");
         snprintf(buf, sizeof(buf), "Socket listening on port: %d", PORT);
 
-#ifdef CONFIG_EXAMPLE_IPV6
-        struct sockaddr_in6 sourceAddr; // Large enough for both IPv4 or IPv6
-#else
-        struct sockaddr_in sourceAddr;
-#endif
-        uint addrLen = sizeof(sourceAddr);
-        int sock = accept(listen_sock, (struct sockaddr *)&sourceAddr, &addrLen);
+        struct sockaddr_storage source_addr; // Large enough for both IPv4 or IPv6
+        uint addr_len = sizeof(source_addr);
+        int sock = accept(listen_sock, (struct sockaddr *)&source_addr, &addr_len);
         if (sock < 0)
         {
             ESP_LOGE(TAG, "Unable to accept connection: errno %d", errno);
             break;
         }
-        ESP_LOGI(TAG, "Socket accepted");
-        strcpy(buf, "Socket accepted");
 
-        while (1)
+        // Convert ip address to string
+        if (source_addr.ss_family == PF_INET)
         {
-            int len = recv(sock, rx_buffer, sizeof(rx_buffer) - 1, 0);
-            // Error occured during receiving
-            if (len < 0)
-            {
-                ESP_LOGE(TAG, "recv failed: errno %d", errno);
-                break;
-            }
-            // Connection closed
-            else if (len == 0)
-            {
-                ESP_LOGI(TAG, "Connection closed");
-                strcpy(buf, "Connection closed");
-                break;
-            }
-            // Data received
-            else
-            {
+            inet_ntoa_r(((struct sockaddr_in *)&source_addr)->sin_addr, addr_str, sizeof(addr_str) - 1);
+        }
 #ifdef CONFIG_EXAMPLE_IPV6
-                // Get the sender's ip address as string
-                if (sourceAddr.sin6_family == PF_INET)
-                {
-                    inet_ntoa_r(((struct sockaddr_in *)&sourceAddr)->sin_addr.s_addr, addr_str, sizeof(addr_str) - 1);
-                }
-                else if (sourceAddr.sin6_family == PF_INET6)
-                {
-                    inet6_ntoa_r(sourceAddr.sin6_addr, addr_str, sizeof(addr_str) - 1);
-                }
-#else
-                inet_ntoa_r(((struct sockaddr_in *)&sourceAddr)->sin_addr.s_addr, addr_str, sizeof(addr_str) - 1);
-#endif
-
-                rx_buffer[len] = 0; // Null-terminate whatever we received and treat like a string
-                ESP_LOGI(TAG, "Received %d bytes from %s:", len, addr_str);
-                snprintf(buf, sizeof(buf), "Received %d bytes from %s:", len, addr_str);
-                ESP_LOGI(TAG, "%s", rx_buffer);
-                snprintf(buf, sizeof(buf), "%s", rx_buffer);
-                ESP_LOGW(TAG, "%s", buf);
-                ESP_LOGW(TAG, "direccion de buf desde task: %p", buf);
-
-                int err = send(sock, rx_buffer, len, 0);
-                if (err < 0)
-                {
-                    ESP_LOGE(TAG, "Error occured during sending: errno %d", errno);
-                    break;
-                }
-            }
-        }
-
-        if (sock != -1)
+        else if (source_addr.sin6_family == PF_INET6)
         {
-            ESP_LOGE(TAG, "Shutting down socket and restarting...");
-            shutdown(sock, 0);
-            close(sock);
+            inet6_ntoa_r(((struct sockaddr_in6 *)&source_addr)->sin6_addr, addr_str, sizeof(addr_str) - 1);
         }
+#endif
+        ESP_LOGI(TAG, "Socket accepted ip address: %s", addr_str);
+
+        do_retransmit(sock);
+
+        shutdown(sock, 0);
+        close(sock);
     }
+
+CLEAN_UP:
+    close(listen_sock);
     vTaskDelete(NULL);
 }
 
 void tcp_server_create(void)
 {
-
-    xTaskCreate(tcp_server_task, "tcp_server", 4096, NULL, 5, NULL);
+#ifdef CONFIG_EXAMPLE_IPV4
+    xTaskCreate(tcp_server_task, "tcp_server", 4096, (void *)AF_INET, 5, NULL);
+#elif CONFIG_EXAMPLE_IPV6
+    xTaskCreate(tcp_server_task, "tcp_server", 4096, (void *)AF_INET6, 5, NULL);
+#endif
 }

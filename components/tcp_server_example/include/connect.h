@@ -16,7 +16,7 @@ extern "C" {
 #include "esp_err.h"
 #include "tcpip_adapter.h"
 
-extern char mi_ip[16];
+extern char mi_ip[16]; // TODO: hacer un struct con la info a imprimir
 
 #define EXAMPLE_INTERFACE TCPIP_ADAPTER_IF_STA
 
