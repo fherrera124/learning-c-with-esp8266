@@ -30,7 +30,7 @@ static const char *TAG = "main";
 char buf[256];
 char mi_ip[16];
 
-xSemaphoreHandle GlobalKey = NULL;
+xSemaphoreHandle bin_sem, mutex = NULL;
 
 static inline void initialize_wifi(void)
 {
@@ -52,25 +52,31 @@ static void setup_display(u8g2_t *u8g2)
     u8g2_SetFont(u8g2, u8g2_font_tom_thumb_4x6_mr);
 }
 
+// Consumer: continuously read from shared buffer
 void vTaskDisplay(u8g2_t *u8g2)
 {
     while (1)
     {
-        if (xSemaphoreTake(GlobalKey, pdMS_TO_TICKS(100)))
-        {
-            ESP_LOGE(TAG, "Took the key");
-            u8g2_ClearBuffer(u8g2);
-            u8g2_DrawStr(u8g2, 10, 20, mi_ip);
-            u8g2_DrawStr(u8g2, 0, 31, buf);
-            u8g2_SendBuffer(u8g2);
-        }
+        xSemaphoreTake(bin_sem, portMAX_DELAY);
+        ESP_LOGI(TAG, "there is new data");
+        // Lock critical section with a mutex
+        xSemaphoreTake(mutex, portMAX_DELAY);
+        ESP_LOGI(TAG, "Got the lock of buffer");
+        u8g2_ClearBuffer(u8g2);
+        u8g2_DrawStr(u8g2, 10, 20, mi_ip);
+        u8g2_DrawStr(u8g2, 0, 31, buf);
+        ESP_LOGI(TAG, "Release the lock of buffer");
+        xSemaphoreGive(mutex);
+        // buffer already copied
+        u8g2_SendBuffer(u8g2);
     }
 }
 
 void app_main()
 {
     u8g2_t u8g2;
-    GlobalKey = xSemaphoreCreateBinary();
+    bin_sem = xSemaphoreCreateBinary();
+    mutex = xSemaphoreCreateMutex();
 
     initialize_wifi();
     tcp_server_create();

@@ -10,4 +10,4 @@ void tcp_server_create(void);
 
 extern char buf[256];
 
-extern xSemaphoreHandle GlobalKey;
+extern xSemaphoreHandle bin_sem, mutex;

@@ -27,9 +27,13 @@ static const char *TAG = "server_task";
 
 static void send_msg(char rx_buffer[])
 {
+    // Lock critical section with a mutex
+    xSemaphoreTake(mutex, portMAX_DELAY);
+    ESP_LOGW(TAG, "Got the lock of buffer");
     snprintf(buf, sizeof(buf), "%s", rx_buffer);
-    ESP_LOGW(TAG, "Task server entrega la key");
-    xSemaphoreGive(GlobalKey);
+    ESP_LOGW(TAG, "Released the lock of buffer, then trigger binary sem");
+    xSemaphoreGive(mutex);
+    xSemaphoreGive(bin_sem);
 }
 
 static void do_retransmit(const int sock)
@@ -124,6 +128,7 @@ static void tcp_server_task(void *pvParameters)
     {
         ESP_LOGI(TAG, "Socket listening");
         snprintf(buf, sizeof(buf), "Socket listening on port: %d", PORT);
+        // send_msg(); FIXME
 
         struct sockaddr_storage source_addr; // Large enough for both IPv4 or IPv6
         uint addr_len = sizeof(source_addr);
