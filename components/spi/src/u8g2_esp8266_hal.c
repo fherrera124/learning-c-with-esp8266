@@ -60,8 +60,6 @@ uint8_t u8x8_byte_esp8266_hw_spi(u8x8_t *u8x8, uint8_t msg, uint8_t arg_int, voi
     switch (msg)
     {
     case U8X8_MSG_BYTE_INIT:
-        if (u8x8->bus_clock == 0) /* issue 769 */
-            u8x8->bus_clock = u8x8->display_info->sck_clock_hz;
         /* disable chipselect */
         u8x8_gpio_SetCS(u8x8, u8x8->display_info->chip_disable_level);
         init_config();

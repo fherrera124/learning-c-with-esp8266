@@ -1,7 +1,10 @@
 #include <string.h>
 #include <sys/param.h>
+
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "freertos/semphr.h"
+
 #include "esp_system.h"
 #include "connect.h"
 #include "server_task.h"
@@ -21,6 +24,13 @@
 #define PORT CONFIG_EXAMPLE_PORT
 
 static const char *TAG = "server_task";
+
+static void send_msg(char rx_buffer[])
+{
+    snprintf(buf, sizeof(buf), "%s", rx_buffer);
+    ESP_LOGW(TAG, "Task server entrega la key");
+    xSemaphoreGive(GlobalKey);
+}
 
 static void do_retransmit(const int sock)
 {
@@ -42,7 +52,7 @@ static void do_retransmit(const int sock)
         {
             rx_buffer[len] = 0; // Null-terminate whatever is received and treat it like a string
             ESP_LOGI(TAG, "Received %d bytes: %s", len, rx_buffer);
-            snprintf(buf, sizeof(buf), "%s", rx_buffer);
+            send_msg(rx_buffer);
 
             // send() can return less bytes than supplied length.
             // Walk-around for robust implementation.
@@ -112,7 +122,6 @@ static void tcp_server_task(void *pvParameters)
 
     while (1)
     {
-
         ESP_LOGI(TAG, "Socket listening");
         snprintf(buf, sizeof(buf), "Socket listening on port: %d", PORT);
 

@@ -1,14 +1,20 @@
 #include <string.h>
 #include <sys/param.h>
 #include "u8g2_esp8266_hal.h"
+
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "freertos/semphr.h"
+
 #include "esp_system.h"
 #include "connect.h"
 #include "server_task.h"
+
 #include "esp_log.h"
+#include "esp_err.h"
 #include "esp_netif.h"
 #include "esp_event.h"
+
 #include "nvs.h"
 #include "nvs_flash.h"
 #include <string.h>
@@ -19,10 +25,12 @@
 
 #define PORT CONFIG_EXAMPLE_PORT
 
-// static const char *TAG = "main";
+static const char *TAG = "main";
 
 char buf[256];
 char mi_ip[16];
+
+xSemaphoreHandle GlobalKey = NULL;
 
 static inline void initialize_wifi(void)
 {
@@ -44,23 +52,28 @@ static void setup_display(u8g2_t *u8g2)
     u8g2_SetFont(u8g2, u8g2_font_tom_thumb_4x6_mr);
 }
 
+void vTaskDisplay(u8g2_t *u8g2)
+{
+    while (1)
+    {
+        if (xSemaphoreTake(GlobalKey, pdMS_TO_TICKS(100)))
+        {
+            ESP_LOGE(TAG, "Took the key");
+            u8g2_ClearBuffer(u8g2);
+            u8g2_DrawStr(u8g2, 10, 20, mi_ip);
+            u8g2_DrawStr(u8g2, 0, 31, buf);
+            u8g2_SendBuffer(u8g2);
+        }
+    }
+}
+
 void app_main()
 {
     u8g2_t u8g2;
+    GlobalKey = xSemaphoreCreateBinary();
 
     initialize_wifi();
     tcp_server_create();
     setup_display(&u8g2);
-
-    while (1)
-    {
-        u8g2_ClearBuffer(&u8g2);
-        u8g2_DrawStr(&u8g2, 10, 20, mi_ip);
-        // strcpy(buf, u8x8_u8toa(i, 3)); /* convert m to a string with two digits */
-        u8g2_DrawStr(&u8g2, 0, 31, buf);
-
-        u8g2_SendBuffer(&u8g2);
-
-        vTaskDelay(1000 / portTICK_PERIOD_MS);
-    }
+    vTaskDisplay(&u8g2);
 }
