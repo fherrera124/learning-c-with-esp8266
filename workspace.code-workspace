@@ -1,0 +1,54 @@
+{
+	"folders": [
+		{
+			"path": "."
+		},
+		{
+			"path": "..\\..\\esp\\ESP8266_RTOS_SDK"
+		}
+	],
+	"settings": {
+		"files.associations": {
+			"*.COBOL*": "cobol",
+			"*.COB*": "cobol",
+			"*.COBCOPY*": "cobol",
+			"*.COPYBOOK*": "cobol",
+			"*.COPY*": "cobol",
+			"*.PL1*": "pl1",
+			"*.PLI*": "pl1",
+			"*.INC*": "pl1",
+			"*.INCLUDE*": "pl1",
+			"*.JCL*": "jcl",
+			"*.ASM*": "hlasm",
+			"*.ASSEMBLE*": "hlasm",
+			"*.HLASM*": "hlasm",
+			"*.HLA*": "hlasm",
+			"sdkconfig": "c",
+			"server_task.h": "c",
+			"esp_netif.h": "c",
+			"sockets.h": "c",
+			"semphr.h": "c",
+			"esp_event.h": "c",
+			"u8g2_esp8266_hal.h": "c",
+			"*.inc": "c",
+			"freertos.h": "c",
+			"array": "cpp",
+			"deque": "cpp",
+			"list": "cpp",
+			"string": "cpp",
+			"unordered_map": "cpp",
+			"vector": "cpp",
+			"string_view": "cpp",
+			"initializer_list": "cpp",
+			"esp_system.h": "c",
+			"esp_err.h": "c",
+			"ets_sys.h": "c",
+			"freertosconfig.h": "c",
+			"stdlib.h": "c",
+			"spi.h": "c",
+			"eagle_soc.h": "c",
+			"spi_struct.h": "c",
+			"ibus_data.h": "c"
+		}
+	}
+}
