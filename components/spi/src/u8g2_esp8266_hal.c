@@ -9,12 +9,11 @@
 #include "freertos/portmacro.h"
 #include "rom/ets_sys.h"
 
-#define GPIO_MOSI        GPIO_NUM_13
-#define GPIO_SCLK        GPIO_NUM_14
-#define GPIO_CS          GPIO_NUM_15
-#define GPIO_OUTPUT_MASK ((1ULL << GPIO_MOSI) | (1ULL << GPIO_SCLK))
-#define MISO_DISABLE     0
-#define HW_CS_DISABLE    0
+#define GPIO_MOSI            GPIO_NUM_13
+#define GPIO_SCLK            GPIO_NUM_14
+#define GPIO_CS              GPIO_NUM_15
+#define GPIO_OUTPUT_MASK     ((1ULL << GPIO_MOSI) | (1ULL << GPIO_SCLK))
+#define SPI_CUSTOM_INTERFACE 0x53;  // spi_interface_t bit fields: mosi_en, byte_tx_order, cpha, cpol
 
 static const gpio_config_t gpio_c = {
     .intr_type    = GPIO_INTR_DISABLE,
@@ -27,17 +26,11 @@ static inline void init_config() {
     // Init spi configuration
     spi_config_t spi_config;
     memset(&spi_config, 0, sizeof(spi_config));
-    spi_config.interface.val           = SPI_DEFAULT_INTERFACE;
-    spi_config.intr_enable.val         = SPI_MASTER_DEFAULT_INTR_ENABLE;
-    spi_config.interface.cs_en         = HW_CS_DISABLE;
-    spi_config.interface.miso_en       = MISO_DISABLE;
-    spi_config.interface.cpol          = SPI_CPOL_HIGH;
-    spi_config.interface.cpha          = SPI_CPHA_HIGH;
-    spi_config.mode                    = SPI_MASTER_MODE;
-    spi_config.clk_div                 = SPI_2MHz_DIV;
-    spi_config.event_cb                = NULL;
-    spi_config.interface.bit_tx_order  = SPI_BIT_ORDER_LSB_FIRST;
-    spi_config.interface.byte_tx_order = SPI_BYTE_ORDER_MSB_FIRST;
+    spi_config.interface.val   = SPI_CUSTOM_INTERFACE;
+    spi_config.intr_enable.val = SPI_MASTER_DEFAULT_INTR_ENABLE;
+    spi_config.mode            = SPI_MASTER_MODE;
+    spi_config.clk_div         = SPI_2MHz_DIV;
+    spi_config.event_cb        = NULL;
 
     spi_init(HSPI_HOST, &spi_config);
 }
@@ -91,10 +84,8 @@ uint8_t u8x8_byte_esp8266_hw_spi(u8x8_t *u8x8, uint8_t msg, uint8_t arg_int,
 
         case U8X8_MSG_BYTE_SEND:;
             uint8_t *data = (uint8_t *)arg_ptr;
-            uint32_t buf;
-            while (arg_int > 0) {
-                buf = *data << 24;
 
+            while (arg_int > 0) {
                 // Waiting for an incomplete transfer
                 while ((&SPI1)->cmd.usr)
                     ;
@@ -106,7 +97,7 @@ uint8_t u8x8_byte_esp8266_hw_spi(u8x8_t *u8x8, uint8_t msg, uint8_t arg_int,
                 (&SPI1)->user.usr_miso         = 0;  // Discard miso
                 (&SPI1)->user.usr_mosi         = 1;  // Enable mosi
                 (&SPI1)->user1.usr_mosi_bitlen = 8 - 1;
-                (&SPI1)->data_buf[0]           = buf;
+                (&SPI1)->data_buf[0]           = *data << 24;
 
                 (&SPI1)->cmd.usr = 1;  // Start transmission
 
