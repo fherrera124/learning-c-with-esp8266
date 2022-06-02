@@ -44,12 +44,6 @@ uint8_t u8x8_gpio_and_delay_esp8266(u8x8_t *u8x8, uint8_t msg, uint8_t arg_int,
 
         case U8X8_MSG_DELAY_MILLI:
             os_delay_us(1000 * arg_int);
-            // vTaskDelay(pdMS_TO_TICKS(arg_int));
-            break;
-
-        case U8X8_MSG_DELAY_NANO:
-            os_delay_us(arg_int == 0 ? 0 : 1);
-            // vTaskDelay(pdMS_TO_TICKS(arg_int == 0 ? 0 : 1));
             break;
 
         case U8X8_MSG_GPIO_CS:  // CS (chip select) pin: Output level in arg_int
@@ -63,29 +57,14 @@ uint8_t u8x8_byte_esp8266_hw_spi(u8x8_t *u8x8, uint8_t msg, uint8_t arg_int,
                                  void *arg_ptr) {
     switch (msg) {
         case U8X8_MSG_BYTE_INIT:
-            /* disable chipselect */
-            u8x8_gpio_SetCS(u8x8, u8x8->display_info->chip_disable_level);
             init_config();
-            break;
-
-        case U8X8_MSG_BYTE_START_TRANSFER:
-            u8x8_gpio_SetCS(u8x8, u8x8->display_info->chip_enable_level);
-            u8x8->gpio_and_delay_cb(
-                u8x8, U8X8_MSG_DELAY_NANO,
-                u8x8->display_info->post_chip_enable_wait_ns, NULL);
-            break;
-
-        case U8X8_MSG_BYTE_END_TRANSFER:
-            u8x8->gpio_and_delay_cb(
-                u8x8, U8X8_MSG_DELAY_NANO,
-                u8x8->display_info->pre_chip_disable_wait_ns, NULL);
-            u8x8_gpio_SetCS(u8x8, u8x8->display_info->chip_disable_level);
             break;
 
         case U8X8_MSG_BYTE_SEND:;
             uint8_t *data = (uint8_t *)arg_ptr;
 
-            while (arg_int > 0) {
+            while (arg_int-- > 0) {
+                
                 // Waiting for an incomplete transfer
                 while ((&SPI1)->cmd.usr);
 
@@ -96,14 +75,11 @@ uint8_t u8x8_byte_esp8266_hw_spi(u8x8_t *u8x8, uint8_t msg, uint8_t arg_int,
                 (&SPI1)->user.usr_miso         = 0;  // Discard miso
                 (&SPI1)->user.usr_mosi         = 1;  // Enable mosi
                 (&SPI1)->user1.usr_mosi_bitlen = 8 - 1;
-                (&SPI1)->data_buf[0]           = *data;
+                (&SPI1)->data_buf[0]           = *data++;
 
                 (&SPI1)->cmd.usr = 1;  // Start transmission
 
                 portEXIT_CRITICAL();
-
-                data++;
-                arg_int--;
             }
             break;
     }

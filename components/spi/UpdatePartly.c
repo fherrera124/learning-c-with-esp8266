@@ -40,6 +40,7 @@
 
 #include "u8g2_esp8266_hal.h"
 #include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
 
 /*
   U82glib Example Overview:

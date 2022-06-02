@@ -1,6 +1,6 @@
 #include "u8g2_esp8266_hal.h"
 #include "freertos/FreeRTOS.h"
-
+#include "freertos/task.h"
 
 u8g2_t u8g2;
 
