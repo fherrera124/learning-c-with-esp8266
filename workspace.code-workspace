@@ -48,7 +48,9 @@
 			"spi.h": "c",
 			"eagle_soc.h": "c",
 			"spi_struct.h": "c",
-			"ibus_data.h": "c"
+			"ibus_data.h": "c",
+			"portmacro.h": "c",
+			"netdb.h": "c"
 		}
 	}
 }

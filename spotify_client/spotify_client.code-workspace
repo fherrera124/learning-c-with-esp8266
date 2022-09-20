@@ -1,0 +1,42 @@
+{
+	"folders": [
+		{
+			"path": "."
+		}
+	],
+	"settings": {
+		"files.associations": {
+			"*.COBOL*": "cobol",
+			"*.COB*": "cobol",
+			"*.COBCOPY*": "cobol",
+			"*.COPYBOOK*": "cobol",
+			"*.COPY*": "cobol",
+			"*.PL1*": "pl1",
+			"*.PLI*": "pl1",
+			"*.INC*": "pl1",
+			"*.INCLUDE*": "pl1",
+			"*.JCL*": "jcl",
+			"*.ASM*": "hlasm",
+			"*.ASSEMBLE*": "hlasm",
+			"*.HLASM*": "hlasm",
+			"*.HLA*": "hlasm",
+			"sdkconfig": "c",
+			"parseobjects.h": "c",
+			"esp_event.h": "c",
+			"esp_http_client.h": "c",
+			"esp_tls.h": "c",
+			"stdint.h": "c",
+			"stdint-gcc.h": "c",
+			"typedefs.h": "c",
+			"parsejson.h": "c",
+			"stdarg.h": "c",
+			"esp_log.h": "c",
+			"jsmn.h": "c",
+			"spotifyclient.h": "c",
+			"http_parser.h": "c",
+			"config.h": "c",
+			"features.h": "c",
+			"assert.h": "c"
+		}
+	}
+}
