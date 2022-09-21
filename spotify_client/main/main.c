@@ -11,6 +11,7 @@
 #include <string.h>
 
 #include "cJSON.h"
+#include "driver/gpio.h"
 #include "esp_event.h"
 #include "esp_http_client.h"
 #include "esp_log.h"
@@ -22,6 +23,8 @@
 #include "parseobjects.h"
 #include "protocol_examples_common.h"
 #include "spotifyclient.h"
+
+void encoder_init(UBaseType_t priority, QueueHandle_t **);
 
 static const char *TAG = "MAIN";
 
@@ -104,9 +107,15 @@ void app_main(void) {
     ESP_ERROR_CHECK(example_connect());
     ESP_LOGI(TAG, "Connected to AP, begin http example");
 
+    /* esp32-rotary-encoder requires that the GPIO ISR service is installed */
+    ESP_ERROR_CHECK(gpio_install_isr_service(0));
+
     initPaths();
 
     client = init_spotify_client();
 
     xTaskCreate(&currently_playing, "currently_playing", 8192, NULL, 5, NULL);
+
+    QueueHandle_t *encoder_queue_ptr = NULL;
+    encoder_init(6, &encoder_queue_ptr);
 }

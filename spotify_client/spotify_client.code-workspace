@@ -36,7 +36,14 @@
 			"http_parser.h": "c",
 			"config.h": "c",
 			"features.h": "c",
-			"assert.h": "c"
+			"assert.h": "c",
+			"inttypes.h": "c",
+			"encoder.h": "c",
+			"gpio.h": "c",
+			"esp_system.h": "c",
+			"freertos.h": "c",
+			"rotary_encoder.h": "c",
+			"pin_mux_register.h": "c"
 		}
 	}
 }
