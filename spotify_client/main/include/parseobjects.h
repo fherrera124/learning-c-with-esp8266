@@ -1,6 +1,8 @@
 #ifndef INCLUDE_PARSEOBJECTS_H_
 #define INCLUDE_PARSEOBJECTS_H_
 
+#include <time.h>
+
 #include "strlib.h"
 
 typedef enum {
@@ -18,6 +20,15 @@ typedef enum {
                       eTrackIsPlayingParsed
 } TrackParsed;
 
+typedef enum {
+    eTokensAccessParsed    = 0x01,
+    eTokensRefreshParsed   = 0x02,
+    eTokensExpiresInParsed = 0x04,
+    eTokensAllParsed       = eTokensAccessParsed |
+                       eTokensRefreshParsed |
+                       eTokensExpiresInParsed
+} TokensParsed;
+
 typedef struct
 {
     char       *name;
@@ -31,16 +42,15 @@ typedef struct
 
 typedef struct
 {
-    char *accessToken;
-    int   accessTokenSize;
-    char *refreshToken;
-    int   refreshTokenSize;
-    int   expiresIn;
-    // TokensParsed parsed;
+    char        *accessToken;
+    char        *refreshToken;
+    time_t       expiresIn;
+    TokensParsed parsed;
 } Tokens;
 
 void initPaths(void);
 
-TrackParsed parseTrackInfo(const char *json, TrackInfo *track);
+TrackParsed  parseTrackInfo(const char *json, TrackInfo *track);
+TokensParsed parseTokens(const char *json, Tokens *tokens);
 
 #endif /* INCLUDE_PARSEOBJECTS_H_ */

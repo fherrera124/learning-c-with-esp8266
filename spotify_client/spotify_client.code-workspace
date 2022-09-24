@@ -43,7 +43,10 @@
 			"esp_system.h": "c",
 			"freertos.h": "c",
 			"rotary_encoder.h": "c",
-			"pin_mux_register.h": "c"
+			"pin_mux_register.h": "c",
+			"sntp.h": "c",
+			"stdlib.h": "c",
+			"ieeefp.h": "c"
 		}
 	}
 }
