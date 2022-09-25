@@ -46,7 +46,9 @@
 			"pin_mux_register.h": "c",
 			"sntp.h": "c",
 			"stdlib.h": "c",
-			"ieeefp.h": "c"
+			"ieeefp.h": "c",
+			"esp_netif.h": "c",
+			"stdbool.h": "c"
 		}
 	}
 }

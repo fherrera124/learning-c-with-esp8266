@@ -28,15 +28,16 @@ char                     access_token[256];
 char                     buffer[MAX_HTTP_BUFFER]; /* maybe I should malloc mem instead of using the heap */
 esp_http_client_handle_t client;                  /* http client handle */
 static SemaphoreHandle_t client_lock = NULL;      /* Mutex to manage access to the http client handle */
-short                    retries     = 0;         /* number of retries made */
+short                    retries     = 0;         /* number of retries on error connections */
 static Tokens            tokens;
+TrackInfo                curTrack = {0};
 
 static esp_err_t handleAuthReply(void);
 
 extern const char spotify_cert_pem_start[] asm("_binary_spotify_cert_pem_start");
 extern const char spotify_cert_pem_end[] asm("_binary_spotify_cert_pem_end");
 
-#define CONFIG_CLIENT(URL, METHOD, AUTH, TYPE)                 \
+#define PREPARE_CLIENT(URL, METHOD, AUTH, TYPE)                \
     esp_http_client_set_url(client, URL);                      \
     esp_http_client_set_method(client, METHOD);                \
     esp_http_client_set_header(client, "Authorization", AUTH); \
@@ -89,13 +90,13 @@ esp_http_client_handle_t init_spotify_client() {
     return client;
 }
 
-static esp_err_t refresh_token() {
+static esp_err_t validate_token() {
     if ((tokens.expiresIn - 10) > time(0)) {
         return ESP_OK;
     }
-    ESP_LOGW(TAG, "Token expired or expiring soon. Fetching a new one.");
-    CONFIG_CLIENT(TOKEN_URL, HTTP_METHOD_POST, "Basic " AUTH_TOKEN,
-                  "application/x-www-form-urlencoded");
+    ESP_LOGW(TAG, "Access Token expired or expiring soon. Fetching a new one.");
+    PREPARE_CLIENT(TOKEN_URL, HTTP_METHOD_POST, "Basic " AUTH_TOKEN,
+                   "application/x-www-form-urlencoded");
 
     const char *post_data = "grant_type=refresh_token&refresh_token=" REFRESH_TOKEN;
     esp_http_client_set_post_field(client, post_data, strlen(post_data));
@@ -105,13 +106,19 @@ static esp_err_t refresh_token() {
 
     int status_code = esp_http_client_get_status_code(client);
     if (err == ESP_OK && status_code == 200) {
-        handleAuthReply();
-        strcpy(access_token, "Bearer ");
-        strcat(access_token, tokens.accessToken);
-        return ESP_OK;
+        if (eTokensAllParsed == parseTokens(buffer, &tokens)) {
+            strcpy(access_token, "Bearer ");
+            strcat(access_token, tokens.accessToken);
+            ESP_LOGW(TAG, "Access Token obtained:\n%s", tokens.accessToken);
+            return ESP_OK;
+        } else {
+            ESP_LOGE(TAG, "Error trying parse token from:\n%s", buffer);
+            return ESP_FAIL;
+        }
     } else {
         ESP_LOGE(TAG, "HTTP POST request failed: %s, status code: %d",
                  esp_err_to_name(err), status_code);
+        ESP_LOGE(TAG, "The answer was:\n%s", buffer);
         return ESP_FAIL;
     }
     return ESP_FAIL;
@@ -124,33 +131,26 @@ static void trackInfoFree(TrackInfo *track) {
 }
 
 static esp_err_t handleApiReply(void) {
-    TrackInfo track;
-    memset(&track, 0, sizeof(TrackInfo));
-    if (eTrackAllParsed == parseTrackInfo(buffer, &track)) {
+    /* TrackInfo track; */
+    memset(&curTrack, 0, sizeof(TrackInfo));
+    if (eTrackAllParsed == parseTrackInfo(buffer, &curTrack)) {
         return ESP_OK;
     } else {
         ESP_LOGE(TAG, "Error parsing track");
     }
-    trackInfoFree(&track);
+    trackInfoFree(&curTrack);
     return ESP_FAIL;
 }
 
-static esp_err_t handleAuthReply(void) {
-    if (eTokensAllParsed == parseTokens(buffer, &tokens)) {
-        return ESP_OK;
-    } else {
-        ESP_LOGE(TAG, "Error parsing token");
-    }
-    return ESP_FAIL;
-}
+void currently_playing_task(void *pvParameters) {
+    int watermark; /* canary variable to monitor the task stack */
 
-void currently_playing(void *pvParameters) {
     while (1) {
         ACQUIRE_LOCK(client_lock);
-        refresh_token();
+        validate_token();
 
-        CONFIG_CLIENT(PLAYERENDPOINT(PLAYING), HTTP_METHOD_GET,
-                      access_token, "application/json");
+        PREPARE_CLIENT(PLAYERENDPOINT(PLAYING), HTTP_METHOD_GET,
+                       access_token, "application/json");
 
     retry:;
         esp_err_t err         = esp_http_client_perform(client);
@@ -160,14 +160,17 @@ void currently_playing(void *pvParameters) {
                 handleApiReply();
             } else if (status_code == 401) { /* bad token or expired */
                 ESP_LOGW(TAG, "Token expired, getting a new one");
-                refresh_token();
+                validate_token();
                 goto retry;
+            } else {
+                ESP_LOGE(TAG, "Error received:\n%s", buffer);
+                return;
             }
             retries = 0;
             ESP_LOGI(TAG, "HTTP POST Status = %d, content_length = %d",
-                     esp_http_client_get_status_code(client),
+                     status_code,
                      esp_http_client_get_content_length(client));
-            ESP_LOGD(TAG, "JSON: %s", buffer);
+            ESP_LOGD(TAG, "JSON received:\n%s", buffer);
 
         } else {
             ESP_LOGE(TAG, "HTTP GET request failed: %s", esp_err_to_name(err));
@@ -189,37 +192,37 @@ void currently_playing(void *pvParameters) {
          * task stack was at its greatest (deepest) value. This is what is referred
          * to as the stack 'high water mark'.
          * */
-        int watermark = uxTaskGetStackHighWaterMark(NULL);
-        ESP_LOGW(TAG, "CURRENTLY-PLAYING-TASK: Smallest stack ammount availability reached: %d", watermark);
+        watermark = uxTaskGetStackHighWaterMark(NULL);
+        if (watermark < 100) {
+            ESP_LOGW(TAG, "CURRENTLY-PLAYING-TASK: Warning. Smallest stack ammount availability reached: %d", watermark);
+        }
     }
     vTaskDelete(NULL);
 }
 
-void spotify_send_player_cmd(void *pvParameter) {
-    ESP_LOGI(TAG, "Core ID %d", xPortGetCoreID());
-
-    int watermark = uxTaskGetStackHighWaterMark(NULL);
-    ESP_LOGW(TAG, "stack ammount availability on init: %d", watermark);
-
+void player_task(void *pvParameter) {
     PlayerCmd                cmd;
     esp_http_client_method_t method;
     const char              *endpoint = NULL;
     QueueHandle_t           *re_queue = (QueueHandle_t *)pvParameter;
+    int                      watermark; /* canary variable to monitor the task stack */
 
     while (1) {
         rotary_encoder_event_t event = {0};
 
         if (pdTRUE == xQueueReceive(*re_queue, &event, pdMS_TO_TICKS(1000))) {
-            cmd = event.state.direction == DIRECTION_CLOCKWISE ? cmdNext : cmdPrev;
-            ESP_LOGI(TAG, "Encoder turned. Direction: %d", event.state.direction);
+            if (event.state.btn_pushed == true) {
+                cmd = cmdToggle;
+                ESP_LOGI(TAG, "Button pushed.");
+            } else {
+                cmd = event.state.direction == DIRECTION_CLOCKWISE ? cmdNext : cmdPrev;
+                ESP_LOGI(TAG, "Encoder turned. Direction: %d", event.state.direction);
+            }
             switch (cmd) {
-                case cmdPlay:
+                case cmdToggle:
                     method   = HTTP_METHOD_PUT;
-                    endpoint = PLAYERENDPOINT(PLAY);
-                    break;
-                case cmdPause:
-                    method   = HTTP_METHOD_PUT;
-                    endpoint = PLAYERENDPOINT(PAUSE);
+                    endpoint = curTrack.isPlaying ? PLAYERENDPOINT(PAUSE) : PLAYERENDPOINT(PLAY);
+                    ESP_LOGW(TAG, "Endpoint to send: %s", endpoint);
                     break;
                 case cmdPrev:
                     method   = HTTP_METHOD_POST;
@@ -236,17 +239,21 @@ void spotify_send_player_cmd(void *pvParameter) {
 
             ACQUIRE_LOCK(client_lock);
 
-            refresh_token();
+            validate_token();
 
-            CONFIG_CLIENT(endpoint, method, access_token, "application/json");
+            PREPARE_CLIENT(endpoint, method, access_token, "application/json");
         retry:;
-            esp_err_t err = esp_http_client_perform(client);
+            esp_err_t err         = esp_http_client_perform(client);
+            int       status_code = esp_http_client_get_status_code(client);
 
             if (err == ESP_OK) {
                 retries = 0;
                 ESP_LOGI(TAG, "HTTP Status Code = %d, content_length = %d",
-                         esp_http_client_get_status_code(client),
+                         status_code,
                          esp_http_client_get_content_length(client));
+                if (cmd == cmdToggle && status_code == 204) {
+                    curTrack.isPlaying = !curTrack.isPlaying;
+                }
             } else {
                 ESP_LOGE(TAG, "HTTP GET request failed: %s", esp_err_to_name(err));
                 if (retries > 0 && ++retries <= 2) {
@@ -268,9 +275,11 @@ void spotify_send_player_cmd(void *pvParameter) {
              * the queue with the value of the last move of the encoder */
             vTaskDelay(pdMS_TO_TICKS(500));
             xQueueReset(*re_queue);
-            /* canary variable to monitor the task stack */
+
             watermark = uxTaskGetStackHighWaterMark(NULL);
-            ESP_LOGW(TAG, "PLAYER-COMMAND-TASK: Smallest stack ammount availability reached: %d", watermark);
+            if (watermark < 100) {
+                ESP_LOGW(TAG, "PLAYER-COMMAND-TASK: Warning. Smallest stack ammount availability reached: %d", watermark);
+            }
         }
     }
 fail:

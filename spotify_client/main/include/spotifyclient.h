@@ -1,14 +1,11 @@
 #include "esp_http_client.h"
 
 typedef enum {
-    cmdPlay,
-    cmdPause,
+    cmdToggle,
     cmdPrev,
-    cmdNext
+    cmdNext,
 } PlayerCmd;
 
-extern char buffer[];
-
-esp_http_client_handle_t init_spotify_client();
-void                     spotify_send_player_cmd(void* pvParameter);
-void                     currently_playing(void* pvParameters);
+esp_http_client_handle_t init_spotify_client(void);
+void                     player_task(void* pvParameter);
+void                     currently_playing_task(void* pvParameters);

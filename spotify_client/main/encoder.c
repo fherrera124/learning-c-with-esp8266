@@ -31,7 +31,7 @@ static void rotary_task(void* pvParameter) {
         if (xQueueReceive(event_queue, &event, portMAX_DELAY)) {
             //cmd = event.state.direction == DIRECTION_CLOCKWISE ? cmdNext : cmdPrev;
 
-            //spotify_send_player_cmd(cmd);
+            //send_player_cmd(cmd);
 
             /* For the actual use case of this encoder, I'm using it as a set of
              * buttons, only interested for the first shift (left or rigth). So when
@@ -53,7 +53,7 @@ void encoder_init(UBaseType_t priority, QueueHandle_t** queue) {
     // IMPORTANT: GPIO ISR service should already be installed
 
     // Initialise the rotary encoder device with the GPIOs for A and B signals
-    ESP_ERROR_CHECK(rotary_encoder_init(&info, ROT_ENC_A_GPIO, ROT_ENC_B_GPIO));
+    ESP_ERROR_CHECK(rotary_encoder_init(&info, ROT_ENC_A_GPIO, ROT_ENC_B_GPIO, ROT_ENC_BTN_GPIO));
     ESP_ERROR_CHECK(rotary_encoder_enable_half_steps(&info, ENABLE_HALF_STEPS));
 #ifdef FLIP_DIRECTION
     ESP_ERROR_CHECK(rotary_encoder_flip_direction(&info));
@@ -63,8 +63,6 @@ void encoder_init(UBaseType_t priority, QueueHandle_t** queue) {
     // Tasks can read from this queue to receive up to date position information.
     event_queue = rotary_encoder_create_queue();
     ESP_ERROR_CHECK(rotary_encoder_set_queue(&info, event_queue));
-
-    
 
     *queue = &event_queue;
 }
