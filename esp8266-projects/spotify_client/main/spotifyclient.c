@@ -259,7 +259,7 @@ void player_task(void *pvParameter) {
                        player, then when sending play command when paused, or
                        viceversa, we receive status code 403.
                     */
-                    if (status_code == 403) {
+                    else if (status_code == 403) {
                         curTrack.isPlaying = !curTrack.isPlaying;
                         if (strcmp(endpoint, PLAYERENDPOINT(PLAY)) == 0) {
                             endpoint = PLAYERENDPOINT(PAUSE);
@@ -267,7 +267,7 @@ void player_task(void *pvParameter) {
                             endpoint = PLAYERENDPOINT(PLAY);
                         }
                         esp_http_client_set_url(client, endpoint);
-                        goto retry; // TODO: add max number of retries maybe
+                        goto retry;  // TODO: add max number of retries maybe
                     } else {
                         ESP_LOGE(TAG, "Error toggling playback. Error: %d", status_code);
                         if (length > 0) {
