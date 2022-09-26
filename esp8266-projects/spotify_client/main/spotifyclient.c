@@ -124,8 +124,8 @@ static esp_err_t validate_token() {
 
 static void trackInfoFree(TrackInfo *track) {
     free(track->name);
-    /* strListClear(&track->artists);
-    strListClear(&track->album); */
+    strListClear(&track->artists);
+    /*strListClear(&track->album); */
 }
 
 static esp_err_t handleApiReply(void) {

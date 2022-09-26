@@ -27,3 +27,18 @@ void strListAppend(StrList *list, char *str) {
         list->count++;
     }
 }
+
+void strListClear(StrList *list) {
+    StrListItem *item = list->first;
+    StrListItem *aux;
+
+    while (item) {
+        free(item->str);
+        aux = item->next;
+        free(item);
+        item = aux;
+    }
+    list->first = NULL;
+    list->last  = NULL;
+    list->count = 0;
+}

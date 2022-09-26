@@ -43,10 +43,18 @@ void onArtistsName(const char *json, void *root, void *object) {
     if (!value) return;
     value = object_get_member(json, value, "artists");
     if (!value) return;
-    const char *artists = json + value->start;
-    // TODO: transform list of artists
+    jsmntok_t *artists = value;
+    for (size_t i = 0; i < (artists->size); i++) {
+        value = array_get_at(artists, i);
+        if (!value) return;
+        value = object_get_member(json, value, "name");
+        if (!value) return;
+        const char *artist = json + value->start;
+        ESP_LOGI(TAG, "Artist: %.*s", value->end - value->start, artist);
+        char *artist_name = strndup(artist, value->end - value->start);
+        strListAppend(&track->artists, artist_name);
+    }
     track->parsed |= eTrackArtistsParsed;
-    ESP_LOGI(TAG, "Artists: %.*s", value->end - value->start, artists);
 }
 
 void onAlbumName(const char *json, void *root, void *object) {

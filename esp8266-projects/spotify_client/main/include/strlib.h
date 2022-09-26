@@ -23,5 +23,6 @@ struct StrList {
 };
 
 void strListAppend(StrList *list, char *str);
+void strListClear(StrList *list);
 
 #endif /* STRLIB_H */
