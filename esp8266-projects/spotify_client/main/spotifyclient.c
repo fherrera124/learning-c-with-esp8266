@@ -32,8 +32,6 @@ short                    retries     = 0;         /* number of retries on error 
 static Tokens            tokens;
 TrackInfo                curTrack = {0};
 
-static esp_err_t handleAuthReply(void);
-
 extern const char spotify_cert_pem_start[] asm("_binary_spotify_cert_pem_start");
 extern const char spotify_cert_pem_end[] asm("_binary_spotify_cert_pem_end");
 
@@ -163,9 +161,8 @@ void currently_playing_task(void *pvParameters) {
                 validate_token();
                 goto retry;
             } else {
-                ESP_LOGE(TAG, "Error received:\n%s", buffer);
-                RELEASE_LOCK(client_lock);
-                continue;
+                ESP_LOGE(TAG, "Error received: %d", status_code);
+                goto sleep;
             }
             retries = 0;
             ESP_LOGI(TAG, "HTTP POST Status = %d, content_length = %d",
@@ -183,10 +180,10 @@ void currently_playing_task(void *pvParameters) {
                 esp_restart();
             }
         }
-
+    sleep:
         RELEASE_LOCK(client_lock);
-
-        vTaskDelay(pdMS_TO_TICKS(10000)); /* Block for 10 secs. */
+        /* Block for 10 secs. */
+        vTaskDelay(pdMS_TO_TICKS(10000));
         /* uxTaskGetStackHighWaterMark() returns the minimum amount of remaining
          * stack space that was available to the task since the task started
          * executing - that is the amount of stack that remained unused when the
