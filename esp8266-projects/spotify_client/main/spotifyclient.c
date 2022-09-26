@@ -164,7 +164,8 @@ void currently_playing_task(void *pvParameters) {
                 goto retry;
             } else {
                 ESP_LOGE(TAG, "Error received:\n%s", buffer);
-                return;
+                RELEASE_LOCK(client_lock);
+                continue;
             }
             retries = 0;
             ESP_LOGI(TAG, "HTTP POST Status = %d, content_length = %d",
