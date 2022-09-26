@@ -7,3 +7,6 @@
 [submodule "esp8266-projects/components/u8g2"]
 	path = esp8266-projects/components/u8g2
 	url = https://github.com/olikraus/u8g2.git
+[submodule "esp-idf"]
+	path = esp-idf
+	url = https://github.com/espressif/esp-idf.git
