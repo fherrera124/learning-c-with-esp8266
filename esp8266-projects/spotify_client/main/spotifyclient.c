@@ -243,14 +243,37 @@ void player_task(void *pvParameter) {
         retry:;
             esp_err_t err         = esp_http_client_perform(client);
             int       status_code = esp_http_client_get_status_code(client);
+            int       length      = esp_http_client_get_content_length(client);
 
             if (err == ESP_OK) {
                 retries = 0;
-                ESP_LOGI(TAG, "HTTP Status Code = %d, content_length = %d",
+                ESP_LOGD(TAG, "HTTP Status Code = %d, content_length = %d",
                          status_code,
-                         esp_http_client_get_content_length(client));
-                if (cmd == cmdToggle && status_code == 204) {
-                    curTrack.isPlaying = !curTrack.isPlaying;
+                         length);
+                if (cmd == cmdToggle) {
+                    if (status_code == 204) { /* OK */
+                        curTrack.isPlaying = !curTrack.isPlaying;
+                    }
+
+                    /* If for any reason, we dont have the actual state of the
+                       player, then when sending play command when paused, or
+                       viceversa, we receive status code 403.
+                    */
+                    if (status_code == 403) {
+                        curTrack.isPlaying = !curTrack.isPlaying;
+                        if (strcmp(endpoint, PLAYERENDPOINT(PLAY)) == 0) {
+                            endpoint = PLAYERENDPOINT(PAUSE);
+                        } else {
+                            endpoint = PLAYERENDPOINT(PLAY);
+                        }
+                        esp_http_client_set_url(client, endpoint);
+                        goto retry; // TODO: add max number of retries maybe
+                    } else {
+                        ESP_LOGE(TAG, "Error toggling playback. Error: %d", status_code);
+                        if (length > 0) {
+                            ESP_LOGE(TAG, "JSON received: %s", buffer);
+                        }
+                    }
                 }
             } else {
                 ESP_LOGE(TAG, "HTTP GET request failed: %s", esp_err_to_name(err));
