@@ -17,7 +17,6 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "nvs_flash.h"
-#include "parseobjects.h"
 #include "spotifyclient.h"
 
 void encoder_init(UBaseType_t priority, QueueHandle_t **);
@@ -36,14 +35,16 @@ void app_main(void) {
     /* esp32-rotary-encoder requires that the GPIO ISR service is installed */
     ESP_ERROR_CHECK(gpio_install_isr_service(0));
 
-    init_functions_cb();
-
     init_spotify_client();
 
-    xTaskCreate(&currently_playing_task, "currently_playing_task", 4096, NULL, 5, NULL);
+    struct {
+        TaskHandle_t   playing_task_hlr;
+        QueueHandle_t *encoder_queue;
+    } handlers = {0};
 
-    QueueHandle_t *encoder_queue_ptr = NULL;
-    encoder_init(6, &encoder_queue_ptr);
-
-    xTaskCreate(&player_task, "player_task", 4096, encoder_queue_ptr, 4, NULL);
+    int res = xTaskCreate(&currently_playing_task, "currently_playing_task", 4096, NULL, 5, &handlers.playing_task_hlr);
+    if (res == pdPASS) {
+        encoder_init(6, &handlers.encoder_queue);
+        xTaskCreate(&player_task, "player_task", 4096, &handlers, 4, NULL);
+    }
 }

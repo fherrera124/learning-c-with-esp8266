@@ -24,5 +24,6 @@ struct StrList {
 
 void strListAppend(StrList *list, char *str);
 void strListClear(StrList *list);
+int  strListEqual(StrList *list1, StrList *list2);
 
 #endif /* STRLIB_H */

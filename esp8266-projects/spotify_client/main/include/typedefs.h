@@ -1,9 +1,9 @@
 #ifndef INCLUDE_TYPEDEFS_H_
 #define INCLUDE_TYPEDEFS_H_
-
+/*
 typedef unsigned int   uint;
 typedef unsigned short ushort;
-typedef unsigned char  uchar;
+typedef unsigned char  uchar; */
 
 /* #define OK    0 */
 #define ERROR -1

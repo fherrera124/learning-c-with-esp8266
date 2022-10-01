@@ -13,12 +13,14 @@ typedef enum {
 //  eTrackDurationParsed  = 0x08,
 //  eTrackProgressParsed  = 0x10,
     eTrackIsPlayingParsed = 0x20,
+    eTrackDeviceParsed    = 0x40,
     eTrackAllParsed       = eTrackNameParsed |
                       eTrackArtistsParsed |
                       eTrackAlbumParsed |
 //                    eTrackDurationParsed |
 //                    eTrackProgressParsed |
-                      eTrackIsPlayingParsed
+                      eTrackIsPlayingParsed |
+                      eTrackDeviceParsed
 } TrackParsed;
 
 typedef enum {
@@ -32,27 +34,38 @@ typedef enum {
 
 typedef struct
 {
+    char *id;
+    bool  is_active;
+    char *name;
+    char *type;
+    char *volume_percent;
+} Device;
+
+typedef struct
+{
     char       *name;
     StrList     artists;
-    StrList     album;
+    char       *album;
     int         duration;
     int         progress;
     bool        isPlaying;
+    Device      device;
     TrackParsed parsed;
 } TrackInfo;
 
 typedef struct
 {
-    /*  char        *refreshToken;
-        char        *authToken; */
-    char        *accessToken;
+/*  char        *refreshToken;
+    char        *authToken; */
+    char        *access_token;
     time_t       expiresIn;
     TokensParsed parsed;
 } Tokens;
 
 void init_functions_cb(void);
 
-TrackParsed  parseTrackInfo(const char *json, TrackInfo *track);
-TokensParsed parseTokens(const char *json, Tokens *tokens);
+TrackParsed  parseTrackInfo(const char *js, TrackInfo *track);
+TokensParsed parseTokens(const char *js, Tokens *tokens);
+void available_devices(const char *js, StrList * device_list);
 
 #endif /* INCLUDE_PARSEOBJECTS_H_ */
