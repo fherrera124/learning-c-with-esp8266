@@ -143,7 +143,7 @@ void onExpiresIn(const char *js, jsmntok_t *root, void *object) {
 }
 
 void parsejson(const char *js, PathCb *callbacks, size_t callbacksSize, void *object) {
-    jsmntok_t *tokens = (jsmntok_t *)malloc(sizeof(jsmntok_t) * MAX_TOKENS);
+    jsmntok_t *tokens = malloc(sizeof(jsmntok_t) * MAX_TOKENS);
 
     jsmn_parser jsmn;
     jsmn_init(&jsmn);
@@ -184,7 +184,7 @@ TokensParsed parseTokens(const char *js, Tokens *tokens) {
 }
 
 void available_devices(const char *js, StrList *device_list) {
-    jsmntok_t *tokens = (jsmntok_t *)malloc(sizeof(jsmntok_t) * 40);
+    jsmntok_t *tokens = malloc(sizeof(jsmntok_t) * 40); /* We expect no more than 40 JSON tokens */
 
     jsmntok_t *root = &tokens[0];
 

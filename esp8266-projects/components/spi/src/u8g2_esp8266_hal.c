@@ -49,6 +49,22 @@ uint8_t u8x8_gpio_and_delay_esp8266(u8x8_t *u8x8, uint8_t msg, uint8_t arg_int,
         case U8X8_MSG_GPIO_CS:  // CS (chip select) pin: Output level in arg_int
             gpio_set_level(GPIO_CS, arg_int);
             break;
+
+        /* case U8X8_MSG_GPIO_MENU_SELECT:
+            u8x8_SetGPIOResult(u8x8, gpio_get_level(KEY_SELECT_PIN));
+            break;
+
+        case U8X8_MSG_GPIO_MENU_NEXT:
+            u8x8_SetGPIOResult(u8x8, gpio_get_level(KEY_NEXT_PIN));
+            break;
+
+        case U8X8_MSG_GPIO_MENU_PREV:
+            u8x8_SetGPIOResult(u8x8, gpio_get_level(KEY_PREV_PIN));
+            break;
+
+        case U8X8_MSG_GPIO_MENU_HOME:
+            u8x8_SetGPIOResult(u8x8, gpio_get_level(KEY_HOME_PIN));
+            break; */
     }
     return 1;
 }
@@ -64,9 +80,9 @@ uint8_t u8x8_byte_esp8266_hw_spi(u8x8_t *u8x8, uint8_t msg, uint8_t arg_int,
             uint8_t *data = (uint8_t *)arg_ptr;
 
             while (arg_int-- > 0) {
-                
                 // Waiting for an incomplete transfer
-                while ((&SPI1)->cmd.usr);
+                while ((&SPI1)->cmd.usr)
+                    ;
 
                 portENTER_CRITICAL();
 

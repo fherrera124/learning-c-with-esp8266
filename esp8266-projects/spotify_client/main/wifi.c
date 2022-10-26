@@ -1,11 +1,17 @@
-/* WiFi station Example
+/**
+ * @file wifi.c
+ * @author Francisco Herrara (you@domain.com)
+ * @brief WiFi station with event group. Once it got an ip, will try to
+ *        connect to a SNTP server and fetch the time and update the C
+ *        library runtime data for the new timezone.
+ * @version 0.1
+ * @date 2022-10-16
+ * 
+ * @copyright Copyright (c) 2022
+ * 
+ */
 
-   This example code is in the Public Domain (or CC0 licensed, at your option.)
-
-   Unless required by applicable law or agreed to in writing, this
-   software is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
-   CONDITIONS OF ANY KIND, either express or implied.
-*/
+/* Includes ------------------------------------------------------------------*/
 #include <string.h>
 #include <time.h>
 
@@ -24,75 +30,32 @@
 #include "nvs.h"
 #include "nvs_flash.h"
 
+/* Private macro -------------------------------------------------------------*/
 #define ESP_WIFI_SSID     CONFIG_ESP_WIFI_SSID
 #define ESP_WIFI_PASS     CONFIG_ESP_WIFI_PASSWORD
 #define ESP_MAXIMUM_RETRY CONFIG_ESP_MAXIMUM_RETRY
-
-/* FreeRTOS event group to signal when we are connected*/
-static EventGroupHandle_t s_wifi_event_group;
-
-/* The event group allows multiple bits for each event, but we only care about two events:
+/* The event group allows multiple bits for each event,
+ * but we only care about two events:
  * - we are connected to the AP with an IP
  * - we failed to connect after the maximum amount of retries */
 #define WIFI_CONNECTED_BIT BIT0
 #define WIFI_FAIL_BIT      BIT1
 
-static void obtain_time(void);
-
-static const char* TAG = "wifi station";
-
-static int s_retry_num = 0;
-
+/* Private function prototypes -----------------------------------------------*/
 static void event_handler(void* arg, esp_event_base_t event_base,
-                          int32_t event_id, void* event_data) {
-    if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_START) {
-        esp_wifi_connect();
-    } else if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_DISCONNECTED) {
-        if (s_retry_num < ESP_MAXIMUM_RETRY) {
-            esp_wifi_connect();
-            s_retry_num++;
-            ESP_LOGI(TAG, "retry to connect to the AP");
-        } else {
-            xEventGroupSetBits(s_wifi_event_group, WIFI_FAIL_BIT);
-        }
-        ESP_LOGI(TAG, "connect to the AP fail");
-    } else if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP) {
-        ip_event_got_ip_t* event = (ip_event_got_ip_t*)event_data;
-        ESP_LOGI(TAG, "got ip:%s",
-                 ip4addr_ntoa(&event->ip_info.ip));
-        s_retry_num = 0;
+                          int32_t event_id, void* event_data);
+/* SNTP */
+static void setting_up_time();
+static void obtain_time();
 
-        /****** SNTP ******/
-        time_t    now;
-        struct tm timeinfo;
-        char      strftime_buf[64];
+/* Private variables ---------------------------------------------------------*/
+static const char* TAG = "wifi station";
+static int s_retry_num = 0;
+/* FreeRTOS event group to signal when we are connected*/
+static EventGroupHandle_t s_wifi_event_group;
 
-        time(&now);
-        localtime_r(&now, &timeinfo);
-
-        if (timeinfo.tm_year < (2016 - 1900)) {
-            ESP_LOGI(TAG, "Time is not set yet. Getting time over NTP.");
-            obtain_time();
-        }
-        // Set timezone to Argentina Standard Time
-        setenv("TZ", "ART+3", 1);
-        tzset(); /*update C library runtime data for the new timezone.*/
-        time(&now);
-        localtime_r(&now, &timeinfo);
-
-        if (timeinfo.tm_year < (2016 - 1900)) {
-            ESP_LOGE(TAG, "The current date/time error");
-        } else {
-            strftime(strftime_buf, sizeof(strftime_buf), "%c", &timeinfo);
-            ESP_LOGI(TAG, "The current date/time in Argentina is: %s", strftime_buf);
-        }
-        /****** SNTP ******/
-
-        xEventGroupSetBits(s_wifi_event_group, WIFI_CONNECTED_BIT);
-    }
-}
-
-void wifi_init_sta(void) {
+/* Exported functions --------------------------------------------------------*/
+void wifi_init_sta() {
     s_wifi_event_group = xEventGroupCreate();
 
     tcpip_adapter_init();
@@ -151,17 +114,65 @@ void wifi_init_sta(void) {
     vEventGroupDelete(s_wifi_event_group);
 }
 
-/********************** SNTP **********************/
 
-static void initialize_sntp(void) {
+/* Private functions ---------------------------------------------------------*/
+static void event_handler(void* arg, esp_event_base_t event_base,
+                          int32_t event_id, void* event_data) {
+    if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_START) {
+        esp_wifi_connect();
+    } else if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_DISCONNECTED) {
+        if (s_retry_num < ESP_MAXIMUM_RETRY) {
+            esp_wifi_connect();
+            s_retry_num++;
+            ESP_LOGI(TAG, "retry to connect to the AP");
+        } else {
+            xEventGroupSetBits(s_wifi_event_group, WIFI_FAIL_BIT);
+        }
+        ESP_LOGI(TAG, "connect to the AP fail");
+    } else if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP) {
+        ip_event_got_ip_t* event = (ip_event_got_ip_t*)event_data;
+        ESP_LOGI(TAG, "got ip:%s",
+                 ip4addr_ntoa(&event->ip_info.ip));
+        s_retry_num = 0;
+
+        /* Got ip, now configure time */
+        setting_up_time();
+
+        xEventGroupSetBits(s_wifi_event_group, WIFI_CONNECTED_BIT);
+    }
+}
+
+static void setting_up_time() {
+    time_t    now;
+    struct tm timeinfo;
+    char      strftime_buf[64];
+
+    time(&now);
+    localtime_r(&now, &timeinfo);
+
+    if (timeinfo.tm_year < (2016 - 1900)) {
+        ESP_LOGI(TAG, "Time is not set yet. Getting time over NTP.");
+        obtain_time();
+    }
+    // Set timezone to Argentina Standard Time
+    setenv("TZ", "ART+3", 1);
+    tzset(); /*update C library runtime data for the new timezone.*/
+    time(&now);
+    localtime_r(&now, &timeinfo);
+
+    if (timeinfo.tm_year < (2016 - 1900)) {
+        ESP_LOGE(TAG, "The current date/time error");
+    } else {
+        strftime(strftime_buf, sizeof(strftime_buf), "%c", &timeinfo);
+        ESP_LOGI(TAG, "The current date/time in Argentina is: %s", strftime_buf);
+    }
+}
+
+static void obtain_time() {
     ESP_LOGI(TAG, "Initializing SNTP");
     sntp_setoperatingmode(SNTP_OPMODE_POLL);
     sntp_setservername(0, "pool.ntp.org");
     sntp_init();
-}
-
-static void obtain_time(void) {
-    initialize_sntp();
 
     // wait for time to be set
     time_t    now         = 0;

@@ -3,9 +3,9 @@
 # project subdirectory.
 #
 
-PROJECT_NAME := esp-http-client-example
+PROJECT_NAME := spotify_client
 
-EXTRA_COMPONENT_DIRS = $(IDF_PATH)/examples/common_components/protocol_examples_common
+EXTRA_COMPONENT_DIRS = ../components
 
 include $(IDF_PATH)/make/project.mk
 

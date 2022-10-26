@@ -1,4 +1,4 @@
-/* SPOTIFY HTTP Client Example
+/* SPOTIFY HTTP Client
 
    This example code is in the Public Domain (or CC0 licensed, at your option.)
 
@@ -7,24 +7,42 @@
    CONDITIONS OF ANY KIND, either express or implied.
 */
 
+/* Includes ------------------------------------------------------------------*/
 #include <stdlib.h>
 #include <string.h>
 
-#include "driver/gpio.h"
 #include "esp_event.h"
 #include "esp_http_client.h"
 #include "esp_log.h"
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
 #include "nvs_flash.h"
+#include "rotary_encoder.h"
 #include "spotifyclient.h"
 
-void encoder_init(UBaseType_t priority, QueueHandle_t **);
+/* External variables --------------------------------------------------------*/
+
+/* Private typedef -----------------------------------------------------------*/
+
+/* Private macro -------------------------------------------------------------*/
+
+/* Private variables ---------------------------------------------------------*/
+static const char* TAG = "MAIN";
+
+rotary_encoder_info_t info = {0};
+
+/* Imported function prototypes ----------------------------------------------*/
 void wifi_init_sta(void);
 
-static const char *TAG = "MAIN";
+esp_err_t display_init(UBaseType_t   priority,
+                       QueueHandle_t encoder_q_hlr,
+                       QueueHandle_t playing_q_hlr);
+
+esp_err_t rotary_encoder_default_init(rotary_encoder_info_t* info);
+
+/**/
 
 void app_main(void) {
+    QueueHandle_t playing_queue_hlr;
+
     esp_err_t ret = nvs_flash_init();
     if (ret == ESP_ERR_NVS_NO_FREE_PAGES) {
         ESP_ERROR_CHECK(nvs_flash_erase());
@@ -32,19 +50,7 @@ void app_main(void) {
     }
     wifi_init_sta();
 
-    /* esp32-rotary-encoder requires that the GPIO ISR service is installed */
-    ESP_ERROR_CHECK(gpio_install_isr_service(0));
-
-    init_spotify_client();
-
-    struct {
-        TaskHandle_t   playing_task_hlr;
-        QueueHandle_t *encoder_queue;
-    } handlers = {0};
-
-    int res = xTaskCreate(&currently_playing_task, "currently_playing_task", 4096, NULL, 5, &handlers.playing_task_hlr);
-    if (res == pdPASS) {
-        encoder_init(6, &handlers.encoder_queue);
-        xTaskCreate(&player_task, "player_task", 4096, &handlers, 4, NULL);
-    }
+    ESP_ERROR_CHECK(rotary_encoder_default_init(&info));
+    ESP_ERROR_CHECK(spotify_client_init(5, &playing_queue_hlr));
+    ESP_ERROR_CHECK(display_init(5, info.queue, playing_queue_hlr));
 }

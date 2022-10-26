@@ -49,7 +49,7 @@ typedef struct
     int         duration;
     int         progress;
     bool        isPlaying;
-    Device      device;
+    Device      device; //TODO: make a pointer to a Device instead
     TrackParsed parsed;
 } TrackInfo;
 
