@@ -5,7 +5,7 @@
 #include <string.h>
 
 StrListItem *allocStrListItem(char *str) {
-    StrListItem *item = (StrListItem *)malloc(sizeof(StrListItem));
+    StrListItem *item = malloc(sizeof(*item));
     if (item) {
         item->str  = str;
         item->next = NULL;
@@ -13,10 +13,10 @@ StrListItem *allocStrListItem(char *str) {
     return item;
 }
 
-void strListAppend(StrList *list, char *str) {
+esp_err_t strListAppend(StrList *list, char *str) {
     StrListItem *item = allocStrListItem(str);
     if (!item) {
-        return;
+        return ESP_ERR_NO_MEM;
     }
     if (!list->first) {
         list->first = item;
@@ -27,6 +27,7 @@ void strListAppend(StrList *list, char *str) {
         list->last       = item;
         list->count++;
     }
+    return ESP_OK;
 }
 
 void strListClear(StrList *list) {

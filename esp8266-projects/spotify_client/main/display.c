@@ -7,13 +7,12 @@
 #include "parseobjects.h"
 #include "rotary_encoder.h"
 #include "spotifyclient.h"
+#include "strlib.h"
 #include "u8g2_esp8266_hal.h"
 
 /* Private macro -------------------------------------------------------------*/
 
 /* Private types -------------------------------------------------------------*/
-
-typedef void (*page_cb_t)(u8g2_t *);
 
 /* Private function prototypes -----------------------------------------------*/
 static void setup_display(u8g2_t *u8g2);
@@ -30,7 +29,7 @@ const char   *TAG = "ST7920";
 
 /* Public variables ---------------------------------------------------------*/
 TaskHandle_t menu_task_hlr;
-Playlists_t  playlists = {0};
+Playlists_t *playlists = NULL;
 
 /* Imported function prototypes ----------------------------------------------*/
 uint8_t userInterfaceSelectionList(u8g2_t *u8g2, QueueHandle_t queue,
@@ -82,8 +81,7 @@ static void initial_menu_page(u8g2_t *u8g2) {
             case 1:
                 break;
             case 2:
-                currently_playing_page(u8g2);
-                return;
+                return currently_playing_page(u8g2);
             case 3:
                 return playlists_page(u8g2);
             default:
@@ -95,32 +93,43 @@ static void initial_menu_page(u8g2_t *u8g2) {
 static void playlists_page(u8g2_t *u8g2) {
     uint8_t selection = 1;
 
-    page_cb_t cb;
+    assert(playlists == NULL);
+
+    playlists = calloc(1, sizeof(*playlists));
+    assert(playlists);
+
+    playlists->uris = calloc(1, sizeof(*playlists->uris));
+    assert(playlists->uris);
 
     http_user_playlists();
-
     ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
 
-    if (playlists.name_list == NULL) return initial_menu_page(u8g2);  // error
+    assert(playlists->name_list);
 
     selection = userInterfaceSelectionList(u8g2, encoder_queue_hlr,
                                            "My Playlists", selection,
-                                           playlists.name_list);
+                                           playlists->name_list);
 
-    switch (selection) {
-        case 1:
-            break;
+    assert(selection <= playlists->uris->count);
 
-        default:
-            cb = initial_menu_page;
-            break;
+    StrListItem *uri = playlists->uris->first;
+
+    for (uint16_t i = 1; i < selection; i++) {
+        uri = uri->next;
     }
 
-    if (playlists.name_list != NULL) {
-        free(playlists.name_list);
-        playlists.name_list = NULL;
-    }
-    return cb(u8g2);
+    ESP_LOGI(TAG, "URI: %s", uri->str);
+
+    http_play_context_uri(uri->str);
+
+    free(playlists->name_list);
+    playlists->name_list = NULL;
+    strListClear(playlists->uris);
+    free(playlists->uris);
+    free(playlists);
+    playlists = NULL;
+
+    return initial_menu_page(u8g2);
 }
 
 static void currently_playing_page(u8g2_t *u8g2) {
@@ -151,6 +160,7 @@ static void currently_playing_page(u8g2_t *u8g2) {
         } else { /* New track, reset variables */
             ESP_LOGW(TAG, "New track event");
             width  = 10 + u8g2_GetStrWidth(u8g2, track.name);
+            
             offset = 0;
         }
 

@@ -170,7 +170,7 @@ uint8_t getMenuEvent(QueueHandle_t queue) {
                        : U8X8_MSG_GPIO_MENU_PREV;
         }
     }
-    return 0;
+    return 0; /* invalid message, no event */
 }
 
 /***************************** END OF FILE ************************************/

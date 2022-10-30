@@ -28,17 +28,17 @@ void onDevicePlaying(const char *js, jsmntok_t *root, void *object) {
     jsmntok_t *value = object_get_member(js, device, "id");
     if (!value) return;
 
-    track->device.id = jsmn_obj_dup(js, value);
-    if (track->device.id == NULL) return;
+    track->device->id = jsmn_obj_dup(js, value);
+    if (track->device->id == NULL) return;
 
     value = object_get_member(js, device, "name");
     if (!value) return;
 
-    track->device.name = jsmn_obj_dup(js, value);
-    if (track->device.name == NULL) return;
+    track->device->name = jsmn_obj_dup(js, value);
+    if (track->device->name == NULL) return;
 
-    track->parsed |= eTrackDeviceParsed;
-    ESP_LOGD(TAG, "Device id: %s, name: %s", track->device.id, track->device.name);
+    track->parsed |= deviceParsed;
+    ESP_LOGD(TAG, "Device id: %s, name: %s", track->device->id, track->device->name);
 }
 
 void onTrackName(const char *js, jsmntok_t *root, void *object) {
@@ -53,7 +53,7 @@ void onTrackName(const char *js, jsmntok_t *root, void *object) {
     track->name = jsmn_obj_dup(js, value);
     if (track->name == NULL) return;
 
-    track->parsed |= eTrackNameParsed;
+    track->parsed |= nameParsed;
     ESP_LOGD(TAG, "Track: %s", track->name);
 }
 
@@ -67,7 +67,7 @@ void onArtistsName(const char *js, jsmntok_t *root, void *object) {
     if (!value) return;
 
     jsmntok_t *artists = value;
-    for (size_t i = 0; i < (artists->size); i++) {
+    for (uint16_t i = 0; i < (artists->size); i++) {
         value = array_get_at(artists, i);
         if (!value) return;
 
@@ -77,10 +77,13 @@ void onArtistsName(const char *js, jsmntok_t *root, void *object) {
         char *artist = jsmn_obj_dup(js, value);
         if (artist == NULL) return;
 
-        strListAppend(&track->artists, artist);
-        ESP_LOGD(TAG, "Artist: %s", artist);
+        if (ESP_OK != strListAppend(track->artists, artist)) {
+            free(artist);
+            strListClear(track->artists);
+            return;
+        }
     }
-    track->parsed |= eTrackArtistsParsed;
+    track->parsed |= artistParsed;
 }
 
 void onAlbumName(const char *js, jsmntok_t *root, void *object) {
@@ -98,7 +101,7 @@ void onAlbumName(const char *js, jsmntok_t *root, void *object) {
     track->album = jsmn_obj_dup(js, value);
     if (track->album == NULL) return;
 
-    track->parsed |= eTrackAlbumParsed;
+    track->parsed |= albumParsed;
     ESP_LOGD(TAG, "Album: %s", track->album);
 }
 
@@ -110,7 +113,7 @@ void onTrackIsPlaying(const char *js, jsmntok_t *root, void *object) {
 
     char type        = (js + (value->start))[0];
     track->isPlaying = type == 't' ? true : false;
-    track->parsed |= eTrackIsPlayingParsed;
+    track->parsed |= isPlayingParsed;
 }
 
 void onAccessToken(const char *js, jsmntok_t *root, void *object) {
@@ -120,7 +123,7 @@ void onAccessToken(const char *js, jsmntok_t *root, void *object) {
     if (!value) return;
     token->access_token = jsmn_obj_dup(js, value);
     if (token->access_token == NULL) return;
-    token->parsed |= eTokensAccessParsed;
+    token->parsed |= accessTokenParsed;
 }
 
 static int str2int(const char *str, short len) {
@@ -139,11 +142,11 @@ void onExpiresIn(const char *js, jsmntok_t *root, void *object) {
 
     int seconds      = str2int(js + value->start, value->end - value->start);
     token->expiresIn = time(0) + seconds;
-    token->parsed |= eTokensExpiresInParsed;
+    token->parsed |= expiresInParsed;
 }
 
 void parsejson(const char *js, PathCb *callbacks, size_t callbacksSize, void *object) {
-    jsmntok_t *tokens = malloc(sizeof(jsmntok_t) * MAX_TOKENS);
+    jsmntok_t *tokens = malloc(sizeof(*tokens) * MAX_TOKENS);
 
     jsmn_parser jsmn;
     jsmn_init(&jsmn);
@@ -183,7 +186,7 @@ TokensParsed parseTokens(const char *js, Tokens *tokens) {
     return tokens->parsed;
 }
 
-void available_devices(const char *js, StrList *device_list) {
+void available_devices(const char *js, StrList *dev_list) {
     jsmntok_t *tokens = malloc(sizeof(jsmntok_t) * 40); /* We expect no more than 40 JSON tokens */
 
     jsmntok_t *root = &tokens[0];
@@ -202,7 +205,7 @@ void available_devices(const char *js, StrList *device_list) {
 
     jsmntok_t *devices = value;
 
-    for (size_t i = 0; i < (size_t)(devices->size); i++) {
+    for (uint16_t i = 0; i < (devices->size); i++) {
         value = array_get_at(devices, i);
         if (!value) goto exit;
 
@@ -212,7 +215,11 @@ void available_devices(const char *js, StrList *device_list) {
         char *id = jsmn_obj_dup(js, value);
         if (!id) goto exit;
 
-        strListAppend(device_list, id);
+        if (ESP_OK != strListAppend(dev_list, id)) {
+            free(id);
+            strListClear(dev_list);
+            goto exit;
+        }
     }
 exit:
     free(tokens);

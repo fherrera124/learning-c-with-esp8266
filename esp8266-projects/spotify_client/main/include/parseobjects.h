@@ -7,29 +7,29 @@
 #include "strlib.h"
 
 typedef enum {
-    eTrackNameParsed      = 0x01,
-    eTrackArtistsParsed   = 0x02,
-    eTrackAlbumParsed     = 0x04,
-//  eTrackDurationParsed  = 0x08,
-//  eTrackProgressParsed  = 0x10,
-    eTrackIsPlayingParsed = 0x20,
-    eTrackDeviceParsed    = 0x40,
-    eTrackAllParsed       = eTrackNameParsed |
-                      eTrackArtistsParsed |
-                      eTrackAlbumParsed |
-//                    eTrackDurationParsed |
-//                    eTrackProgressParsed |
-                      eTrackIsPlayingParsed |
-                      eTrackDeviceParsed
+    nameParsed   = 0x01,
+    artistParsed = 0x02,
+    albumParsed  = 0x04,
+//  durationParsed  = 0x08,
+//  progressParsed  = 0x10,
+    isPlayingParsed = 0x20,
+    deviceParsed    = 0x40,
+    trackAllParsed       = nameParsed |
+                artistParsed |
+                albumParsed |
+//              durationParsed |
+//              progressParsed |
+                isPlayingParsed |
+                deviceParsed
 } TrackParsed;
 
 typedef enum {
-    eTokensAccessParsed    = 0x01,
-//  eTokensRefreshParsed   = 0x02,
-    eTokensExpiresInParsed = 0x04,
-    eTokensAllParsed       = eTokensAccessParsed |
-//                     eTokensRefreshParsed |
-                       eTokensExpiresInParsed
+    accessTokenParsed = 0x01,
+//  refreshTokenParsed = 0x02,
+    expiresInParsed = 0x04,
+    tokenAllParsed       = accessTokenParsed |
+//              refreshTokenParsed |
+                expiresInParsed
 } TokensParsed;
 
 typedef struct
@@ -44,19 +44,19 @@ typedef struct
 typedef struct
 {
     char       *name;
-    StrList     artists;
+    StrList    *artists;
     char       *album;
     int         duration;
     int         progress;
     bool        isPlaying;
-    Device      device; //TODO: make a pointer to a Device instead
+    Device     *device;
     TrackParsed parsed;
 } TrackInfo;
 
 typedef struct
 {
-/*  char        *refreshToken;
-    char        *authToken; */
+    /*  char        *refreshToken;
+        char        *authToken; */
     char        *access_token;
     time_t       expiresIn;
     TokensParsed parsed;
@@ -66,6 +66,6 @@ void init_functions_cb(void);
 
 TrackParsed  parseTrackInfo(const char *js, TrackInfo *track);
 TokensParsed parseTokens(const char *js, Tokens *tokens);
-void available_devices(const char *js, StrList * device_list);
+void         available_devices(const char *js, StrList *device_list);
 
 #endif /* INCLUDE_PARSEOBJECTS_H_ */
