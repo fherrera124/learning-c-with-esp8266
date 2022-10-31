@@ -53,34 +53,37 @@
 #define MY_BORDER_SIZE 1
 
 /* Imported function prototypes ----------------------------------------------*/
-void u8g2_DrawSelectionList(u8g2_t *u8g2, u8sl_t *u8sl, u8g2_uint_t y, const char *s);
+void u8g2_DrawSelectionList(u8g2_t* u8g2, u8sl_t* u8sl, u8g2_uint_t y, const char* s);
 
 /* Private function prototypes -----------------------------------------------*/
 uint8_t getMenuEvent(QueueHandle_t queue);
 
 /* Private variables ---------------------------------------------------------*/
-const char *TAG2 = "selection_list";
+const char* TAG2 = "selection_list";
 
 /* Exported functions --------------------------------------------------------*/
 
 /**
- * @brief Modified version of u8g2_UserInterfaceSelectionList(), adapted for
- *        rotary encoder queue.
+ * @brief Display a list of scrollable and selectable options. The user can select
+ * one of the options. NOTE: Modified version of u8g2_UserInterfaceSelectionList(),
+ * adapted for rotary encoder queue.
  *        Side effects (according to original function):
  *        -    u8g2_SetFontDirection(u8g2, 0);
  *        -    u8g2_SetFontPosBaseline(u8g2);
  *
+ * @param u8g2 A pointer to the u8g2 structure
  * @param queue Handle of the rotary encoder queue
  * @param title NULL for no title, valid str for title line. Can contain
  *              mutliple lines, separated by '\\n'
  * @param start_pos default position for the cursor, first line is 1.
  * @param sl string list (list of strings separated by \n)
  *
- * @retval 0 if user has pressed the home key
- * @retval The selected line if user has pressed the select key
+ * @retval - 0 if user has pressed the home key
+ * @retval - The selected line if user has pressed the select key
  */
-uint8_t userInterfaceSelectionList(u8g2_t *u8g2, QueueHandle_t queue,
-                                   const char *title, uint8_t start_pos, const char *sl) {
+uint8_t userInterfaceSelectionList(u8g2_t* u8g2, QueueHandle_t queue,
+    const char* title, uint8_t start_pos, const char* sl)
+{
     u8sl_t      u8sl;
     u8g2_uint_t yy;
 
@@ -92,19 +95,19 @@ uint8_t userInterfaceSelectionList(u8g2_t *u8g2, QueueHandle_t queue,
     uint8_t display_lines;
 
     if (start_pos > 0) /* issue 112 */
-        start_pos--;   /* issue 112 */
+        start_pos--; /* issue 112 */
 
     if (title_lines > 0) {
         display_lines = (u8g2_GetDisplayHeight(u8g2) - 3) / line_height;
-        u8sl.visible  = display_lines;
+        u8sl.visible = display_lines;
         u8sl.visible -= title_lines;
     } else {
         display_lines = u8g2_GetDisplayHeight(u8g2) / line_height;
-        u8sl.visible  = display_lines;
+        u8sl.visible = display_lines;
     }
 
-    u8sl.total       = u8x8_GetStringLineCnt(sl);
-    u8sl.first_pos   = 0;
+    u8sl.total = u8x8_GetStringLineCnt(sl);
+    u8sl.first_pos = 0;
     u8sl.current_pos = start_pos;
 
     if (u8sl.current_pos >= u8sl.total)
@@ -150,24 +153,25 @@ uint8_t userInterfaceSelectionList(u8g2_t *u8g2, QueueHandle_t queue,
 }
 
 /* Private functions ---------------------------------------------------------*/
-uint8_t getMenuEvent(QueueHandle_t queue) {
-    rotary_encoder_event_t queue_event = {0};
+uint8_t getMenuEvent(QueueHandle_t queue)
+{
+    rotary_encoder_event_t queue_event = { 0 };
 
     if (pdTRUE == xQueueReceive(queue, &queue_event, portMAX_DELAY)) {
         if (queue_event.event_type == BUTTON_EVENT) {
             switch (queue_event.btn_event) {
-                case SHORT_PRESS:
-                    return U8X8_MSG_GPIO_MENU_SELECT;
-                case MEDIUM_PRESS:
-                    /* not yet defined */
-                    break;
-                case LONG_PRESS:
-                    return U8X8_MSG_GPIO_MENU_HOME;
+            case SHORT_PRESS:
+                return U8X8_MSG_GPIO_MENU_SELECT;
+            case MEDIUM_PRESS:
+                /* not yet defined */
+                break;
+            case LONG_PRESS:
+                return U8X8_MSG_GPIO_MENU_HOME;
             }
         } else { /* ROTARY_ENCODER_EVENT */
             return queue_event.re_state.direction == ROTARY_ENCODER_DIRECTION_CLOCKWISE
-                       ? U8X8_MSG_GPIO_MENU_NEXT
-                       : U8X8_MSG_GPIO_MENU_PREV;
+                ? U8X8_MSG_GPIO_MENU_NEXT
+                : U8X8_MSG_GPIO_MENU_PREV;
         }
     }
     return 0; /* invalid message, no event */

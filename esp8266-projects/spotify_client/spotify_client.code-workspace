@@ -27,7 +27,6 @@
 			"esp_tls.h": "c",
 			"stdint.h": "c",
 			"stdint-gcc.h": "c",
-			"typedefs.h": "c",
 			"parsejson.h": "c",
 			"stdarg.h": "c",
 			"esp_log.h": "c",

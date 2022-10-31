@@ -60,3 +60,4 @@ sdkconfig.old
 
 # ESP8266 toolchain folder
 xtensa-lx106-elf
+esp8266-projects/spotify_client/spotify_client.code-workspace
