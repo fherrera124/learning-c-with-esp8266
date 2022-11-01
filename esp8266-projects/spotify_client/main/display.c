@@ -22,14 +22,14 @@ static void currently_playing_page(u8g2_t* u8g2);
 static void track_menu_context(u8g2_t* u8g2);
 static void playlists_page(u8g2_t* u8g2);
 
-/* Private variables ---------------------------------------------------------*/
+/* Locally scoped variables --------------------------------------------------*/
 QueueHandle_t playing_queue_hlr;
 QueueHandle_t encoder_queue_hlr;
 const char*   TAG = "ST7920";
 
-/* Public variables ---------------------------------------------------------*/
-TaskHandle_t menu_task_hlr;
-Playlists_t* playlists = NULL;
+/* Globally scoped variables -------------------------------------------------*/
+TaskHandle_t MENU_TASK_HLR;
+Playlists_t* PLAYLISTS = NULL;
 
 /* Imported function prototypes ----------------------------------------------*/
 uint8_t userInterfaceSelectionList(u8g2_t* u8g2, QueueHandle_t queue,
@@ -42,7 +42,7 @@ esp_err_t display_init(UBaseType_t priority, QueueHandle_t encoder_q_hlr,
 {
     encoder_queue_hlr = encoder_q_hlr;
     playing_queue_hlr = playing_q_hlr;
-    if (pdPASS == xTaskCreate(display_task, "display_task", 4096, NULL, priority, &menu_task_hlr))
+    if (pdPASS == xTaskCreate(display_task, "display_task", 4096, NULL, priority, &MENU_TASK_HLR))
         return ESP_OK;
     return ESP_FAIL;
 }
@@ -50,8 +50,14 @@ esp_err_t display_init(UBaseType_t priority, QueueHandle_t encoder_q_hlr,
 /* Private functions ---------------------------------------------------------*/
 static void setup_display(u8g2_t* u8g2)
 {
-    u8g2_Setup_st7920_s_128x64_f(u8g2, U8G2_R0, u8x8_byte_esp8266_hw_spi,
-        u8x8_gpio_and_delay_esp8266); // init u8g2 structure
+    u8g2_esp8266_hal_t u8g2_esp8266_hal = {
+        .mosi = GPIO_NUM_13,
+        .clk = GPIO_NUM_14,
+        .cs = GPIO_NUM_15
+    };
+    u8g2_esp8266_hal_init(u8g2_esp8266_hal);
+    u8g2_Setup_st7920_s_128x64_f(u8g2, U8G2_R0, u8g2_esp8266_spi_byte_cb,
+        u8g2_esp8266_gpio_and_delay_cb); // init u8g2 structure
 
     u8g2_InitDisplay(u8g2); // send init sequence to the display, display is in sleep mode after this
     u8g2_ClearDisplay(u8g2);
@@ -97,26 +103,26 @@ static void playlists_page(u8g2_t* u8g2)
 {
     uint8_t selection = 1;
 
-    assert(playlists == NULL);
+    assert(PLAYLISTS == NULL);
 
-    playlists = calloc(1, sizeof(*playlists));
-    assert(playlists);
+    PLAYLISTS = calloc(1, sizeof(*PLAYLISTS));
+    assert(PLAYLISTS);
 
-    playlists->uris = calloc(1, sizeof(*playlists->uris));
-    assert(playlists->uris);
+    PLAYLISTS->uris = calloc(1, sizeof(*PLAYLISTS->uris));
+    assert(PLAYLISTS->uris);
 
     http_user_playlists();
     ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
 
-    assert(playlists->name_list);
+    assert(PLAYLISTS->name_list);
 
     selection = userInterfaceSelectionList(u8g2, encoder_queue_hlr,
         "My Playlists", selection,
-        playlists->name_list);
+        PLAYLISTS->name_list);
 
-    assert(selection <= playlists->uris->count);
+    assert(selection <= PLAYLISTS->uris->count);
 
-    StrListItem* uri = playlists->uris->first;
+    StrListItem* uri = PLAYLISTS->uris->first;
 
     for (uint16_t i = 1; i < selection; i++) {
         uri = uri->next;
@@ -126,12 +132,12 @@ static void playlists_page(u8g2_t* u8g2)
 
     http_play_context_uri(uri->str);
 
-    free(playlists->name_list);
-    playlists->name_list = NULL;
-    strListClear(playlists->uris);
-    free(playlists->uris);
-    free(playlists);
-    playlists = NULL;
+    free(PLAYLISTS->name_list);
+    PLAYLISTS->name_list = NULL;
+    strListClear(PLAYLISTS->uris);
+    free(PLAYLISTS->uris);
+    free(PLAYLISTS);
+    PLAYLISTS = NULL;
 
     return initial_menu_page(u8g2);
 }

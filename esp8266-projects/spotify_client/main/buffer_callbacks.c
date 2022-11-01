@@ -59,8 +59,8 @@ static const char* TAG = "HTTP-BUFFER";
 static int         curly_count;
 
 /* External variables --------------------------------------------------------*/
-extern TaskHandle_t menu_task_hlr;
-extern Playlists_t* playlists;
+extern TaskHandle_t MENU_TASK_HLR;
+extern Playlists_t* PLAYLISTS;
 
 /* Exported functions --------------------------------------------------------*/
 void default_fun(char* buffer, esp_http_client_event_t* evt)
@@ -170,13 +170,13 @@ void get_playlists(char* buffer, esp_http_client_event_t* evt)
         break;
     case HTTP_EVENT_ON_FINISH: // doubt, always called? (even when error or disconnect event ocurr??)
         if (state.abort == true) {
-            free(playlists->name_list);
-            playlists->name_list = NULL;
+            free(PLAYLISTS->name_list);
+            PLAYLISTS->name_list = NULL;
         }
         output_len = 0;
         state.val = 5; // 0101
         ESP_LOGI(TAG, "Session finished");
-        xTaskNotifyGive(menu_task_hlr);
+        xTaskNotifyGive(MENU_TASK_HLR);
         break;
     case HTTP_EVENT_DISCONNECTED:
         if (ESP_OK != esp_tls_get_and_clear_last_error(evt->data, NULL, NULL)) {
@@ -262,7 +262,7 @@ fail:
  */
 esp_err_t str_append(jsmntok_t* obj, const char* buf)
 {
-    char** str = &playlists->name_list; // more readable
+    char** str = &PLAYLISTS->name_list; // more readable
 
     if (*str == NULL) {
         *str = jsmn_obj_dup(buf, obj);
@@ -294,5 +294,5 @@ esp_err_t uri_append(jsmntok_t* obj, const char* buf)
     if (uri == NULL)
         return ESP_ERR_NO_MEM;
 
-    return strListAppend(playlists->uris, uri);
+    return strListAppend(PLAYLISTS->uris, uri);
 }
