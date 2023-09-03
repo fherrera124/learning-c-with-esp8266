@@ -1,6 +1,4 @@
-# learning-c-with-socs
-
-learning c with esp8266 and esp32
+# learning c with esp8266 (DEPRECATED)
 
 ## Notes
 
